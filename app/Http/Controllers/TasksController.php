@@ -16,11 +16,25 @@ class TasksController extends Controller
     // getでtask/にアクセスされた場合の「一覧表示処理」
     public function index()
     {
-        $tasks = Task::orderBy('id', 'desc')->paginate(25);    // 降順で25件ずつページング
 
-        return view('tasks.index', [
-            'tasks' => $tasks,
-        ]);
+        $data = [];
+        if (\Auth::check()) {
+            $user = \Auth::user();
+            $tasks = Task::orderBy('id', 'desc')->paginate(5);  // 降順で5件ずつページング
+            
+            $data = [
+                'user' => $user,
+                'tasks' => $tasks,
+            ];
+            
+            return view('tasks.index', [
+                'tasks' => $tasks,
+            ]);
+
+        }
+        
+        return view('welcome', $data);
+
     }
 
     /**
@@ -47,6 +61,8 @@ class TasksController extends Controller
     // postでtasks/にアクセスされた場合の「新規登録処理」
     public function store(Request $request)
     {
+        $user = \Auth::user();
+
         $this->validate($request, [
             'status' => 'required|max:10',
             'content' => 'required|max:191',
@@ -55,6 +71,7 @@ class TasksController extends Controller
         $task = new Task;
         $task->status = $request->status;
         $task->content = $request->content;
+        $task->user_id = $user->id;
         $task->save();
 
         return redirect('/');
@@ -102,16 +119,23 @@ class TasksController extends Controller
     // putまたはpatchでtasks/idにアクセスされた場合の「更新処理」
     public function update(Request $request, $id)
     {
-        $this->validate($request, [
-            'status' => 'required|max:10',
-            'content' => 'required|max:191',
-        ]);
 
+        $user = \Auth::user();
         $task = Task::find($id);
-        $task->status = $request->status;
-        $task->content = $request->content;
-        $task->save();
 
+        if ($task->user_id === $user->id) {
+    
+            $this->validate($request, [
+                'status' => 'required|max:10',
+                'content' => 'required|max:191',
+            ]);
+
+            $task->status = $request->status;
+            $task->content = $request->content;
+            $task->user_id = $user->id;
+            $task->save();
+        }
+        
         return redirect('/');
     }
 
@@ -124,8 +148,13 @@ class TasksController extends Controller
     // deleteでtasks/idにアクセスされた場合の「削除処理」
     public function destroy($id)
     {
+
+        $user = \Auth::user();
         $task = Task::find($id);
-        $task->delete();
+
+        if ($task->user_id === $user->id) {
+            $task->delete();
+        }
 
         return redirect('/');
     }
